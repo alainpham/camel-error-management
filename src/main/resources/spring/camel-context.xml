@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:context="http://www.springframework.org/schema/context" xmlns:cxf="http://camel.apache.org/schema/cxf" xsi:schemaLocation="
+       http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://camel.apache.org/schema/spring http://camel.apache.org/schema/spring/camel-spring.xsd
+       http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
+       http://camel.apache.org/schema/cxf http://camel.apache.org/schema/cxf/camel-cxf.xsd
+       ">
+
+    <camelContext id="error-mgmt" xmlns="http://camel.apache.org/schema/spring">
+
+        <rest id="restsvc" path="/restsvc">
+            <get id="get-ping" uri="/ping">
+                <route id="get-pring-route">
+                    <setBody>
+                        <method ref="myTransformer" />
+                    </setBody>
+                    <to uri="kafka:my-topic"/>
+                </route>
+            </get>
+        </rest>
+
+        <route id="http-receiver">
+            <from id="http-receiver-starter" uri="kafka:my-topic" />
+            <onException>
+                <exception>java.lang.Exception</exception>
+                <redeliveryPolicy 
+                    redeliveryDelay="1000" 
+                    useExponentialBackOff="true" 
+                    backOffMultiplier="2" 
+                    maximumRedeliveries="3" 
+                    logRetryAttempted="true" 
+                    retryAttemptedLogLevel="INFO" />
+                <handled>
+                    <constant>true</constant>
+                </handled>
+                <log message="Message with content ${body} has failed, consider replaying manually"/>
+            </onException>
+            <log message="beforeException" />
+            <throwException exceptionType="java.lang.Exception" message="My custom error thrown on purpose" />
+            <log message="afterException"/>
+        </route>
+
+    </camelContext>
+
+</beans>
